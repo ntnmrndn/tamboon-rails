@@ -1,68 +1,51 @@
 class WebsiteController < ApplicationController
+  before_action :set_token
+  before_action :set_charity!, :only => [:donate]
+
   def index
     @token = nil
   end
 
   def donate
-    charity = Charity.find_by(id: params[:charity])
-    if params[:omise_token].present?
-      unless params[:amount].blank? || params[:amount].to_i <= 20
-        unless !charity
-          if Rails.env.test?
-            charge = OpenStruct.new({
-              amount: params[:amount].to_i * 100,
-              paid: (params[:amount].to_i != 999),
-            })
-          else
-            charge = Omise::Charge.create({
-              amount: params[:amount].to_i * 100,
-              currency: "THB",
-              card: params[:omise_token],
-              description: "Donation to #{charity.name} [#{charity.id}]",
-            })
-          end
-          if charge.paid
-            charity.credit_amount(charge.amount)
-          end
-        else
-          @token = retrieve_token(params[:omise_token])
-          flash.now.alert = t(".failure")
-          render :index
-          return
-        end
+    unless @charity.nil? || @token.nil? || params[:amount].blank? || params[:amount].to_i <= 20
+      if Rails.env.test?
+        charge = OpenStruct.new({
+                                  amount: params[:amount].to_i * 100,
+                                  paid: (params[:amount].to_i != 999),
+                                  currency: "THB",
+                                  card: params[:omise_token],
+                                  description: "Donation to #{@charity.name} [#{@charity.id}]",
+                                })
       else
-        @token = retrieve_token(params[:omise_token])
-        flash.now.alert = t(".failure")
-        render :index
+        charge = Omise::Charge.create({
+                                        amount: params[:amount].to_i * 100,
+                                        currency: "THB",
+                                        card: params[:omise_token],
+                                        description: "Donation to #{@charity.name} [#{@charity.id}]",
+                                      })
+      end
+      if charge.paid
+        @charity.credit_amount(charge.amount)
+        flash.notice = t(".success")
+        redirect_to root_path
         return
       end
-    else
-      @token = nil
-      flash.now.alert = t(".failure")
-      render :index
-      return
     end
-    if !charity
-      @token = nil
-      flash.now.alert = t(".failure")
-      render :index
-      return
-    end
-    if charge.paid
-      flash.notice = t(".success")
-      redirect_to root_path
-    else
-      @token = nil
-      flash.now.alert = t(".failure")
-      render :index
-    end
+    flash.now.alert = t(".failure")
+    render :index
   end
 
   private
 
-  def retrieve_token(token)
-    if Rails.env.test?
-      OpenStruct.new({
+  def set_charity!
+    @charity = Charity.find_by(id: params[:charity])
+  end
+
+  def set_token
+    if params[:omise_token].blank?
+      @token = nil
+    elsif Rails.env.test?
+      @token = OpenStruct.new({
         id: "tokn_X",
         card: OpenStruct.new({
           name: "J DOE",
@@ -73,7 +56,7 @@ class WebsiteController < ApplicationController
         }),
       })
     else
-      Omise::Token.retrieve(token)
+      @token = Omise::Token.retrieve(token)
     end
   end
 end
