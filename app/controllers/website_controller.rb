@@ -8,9 +8,10 @@ class WebsiteController < ApplicationController
 
   def donate
     unless @charity.nil? || @token.nil? || params[:amount].blank? || params[:amount].to_i <= 20
+      amount = (params[:amount].to_f * 100).to_i
       if Rails.env.test?
         charge = OpenStruct.new({
-                                  amount: params[:amount].to_i * 100,
+                                  amount: amount,
                                   paid: (params[:amount].to_i != 999),
                                   currency: "THB",
                                   card: params[:omise_token],
@@ -18,7 +19,7 @@ class WebsiteController < ApplicationController
                                 })
       else
         charge = Omise::Charge.create({
-                                        amount: params[:amount].to_i * 100,
+                                        amount: amount,
                                         currency: "THB",
                                         card: params[:omise_token],
                                         description: "Donation to #{@charity.name} [#{@charity.id}]",

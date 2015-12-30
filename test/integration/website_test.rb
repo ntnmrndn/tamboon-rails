@@ -50,6 +50,19 @@ class WebsiteTest < ActionDispatch::IntegrationTest
     assert_equal expected_total, charity.reload.total
   end
 
+
+  test "that someone can donate subunits a charity" do
+    charity = charities(:children)
+    initial_total = charity.total
+    amount = 100.11
+    expected_total = initial_total + amount * 100
+    post_via_redirect donate_path, amount: amount.to_s, omise_token: "tokn_X", charity: charity.id
+
+    assert_template :index
+    assert_equal t("website.donate.success"), flash[:notice]
+    assert_equal expected_total, charity.reload.total
+  end
+
   test "that if the charge fail from omise side it shows an error" do
     charity = charities(:children)
 
